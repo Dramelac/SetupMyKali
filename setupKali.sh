@@ -24,7 +24,7 @@ iso=$1
 device=$2
 
 #COLOR
-NC='\033[0m'
+NC='\033[0m' # No color
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
@@ -40,6 +40,7 @@ if [ $? -ne 0 ]
 fi
 echo -e "[${GREEN}OK${NC}] Success !"
 
+# Determine free left space on USB device
 part=$(parted -m /dev/sdc unit s print free | grep "free" | tail -n1)
 start=$(echo $part | awk -F':' '{print $2}')
 end=$(echo $part | awk -F':' '{print $3}')
@@ -50,6 +51,7 @@ partition=$(echo $device)3
 
 echo -e "[${BLUE}INFO${NC}] Creating encrypted partition format on $partition"
 echo -e "[${BLUE}INFO${NC}] Enter your passphrase (initialization step) :"
+# Using luks format to encrypt data on this partition
 cryptsetup -v -y luksFormat $partition
 if [ $? -ne 0 ]
   then echo -e "[${RED}ERROR${NC}] An error occured"
@@ -72,6 +74,7 @@ mkdir -p /mnt/temp_usb
 mount /dev/mapper/temp_usb /mnt/temp_usb
 
 echo -e "[${BLUE}INFO${NC}] Write persistence setting"
+# Writing kali configuration to enable persistence
 echo "/ union" > /mnt/temp_usb/persistence.conf
 
 echo -e "[${BLUE}INFO${NC}] Unmount and close filesystem"
@@ -79,12 +82,5 @@ umount /dev/mapper/temp_usb
 cryptsetup luksClose /dev/mapper/temp_usb
 
 echo -e "[${GREEN}SUCCESS${NC}] USB READY !"
-
-
-
-
-
-
-
 
 
