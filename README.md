@@ -1,10 +1,11 @@
 # SetupMyKali
-This project can configure a live USB kali with a persistent encrypted partition
+This project can automatically configure a live USB kali with a persistent encrypted partition
 
 ## Prerequisites
 
 This script require **cryptsetup**, **parted** and **dd**.
 
+    apt-get update && apt-get install cryptsetup
 
 ## How to use
 
