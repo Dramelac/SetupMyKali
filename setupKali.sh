@@ -3,12 +3,10 @@
 function tryAndExit {
     command=$1
 
-    until [ 0 -eq 1 ]
-    do
+    while true; do
       $command && break
       if ask "[${RED}ERROR${NC}] Fail ! Retry?" Y; then
         sleep 1
-        break
       else
         echo -e "[${RED}ERROR${NC}] Execution aborted"
         exit 1
@@ -104,7 +102,7 @@ if [ ! -z $help ]
     echo "  -d, --device        path to usb device (for example : /dev/sdc)"
     echo ""
     echo "Optional arguments :"
-    echo "  -v, --verbose       verbose mode (WIP)"
+    # echo "  -v, --verbose       verbose mode (WIP)"
     echo "  -h, --help          print this help message"
     echo ""
     echo "Tools from : https://github.com/Dramelac/SetupMyKali"
@@ -137,7 +135,7 @@ RED='\033[0;31m'$BOLD
 echo -e "[${BLUE}INFO${NC}] Creating bootable Kali Linux with $iso on $device"
 
 echo -e "[${ORANGE}WARNING${NC}] This script will$BOLD DELETED DEFINITIVELY$NC all the data present on $device"
-ask "Are you sure you want to continue?" Y || exit 0
+ask "[${GREEN}?${NC}] Are you sure you want to continue?" Y || exit 0
 
 echo -e "[${BLUE}INFO${NC}] Please wait ... Might be (very) long ..."
 dd if=$iso of=$device bs=512k
@@ -167,7 +165,7 @@ tryAndExit "cryptsetup -v -y luksFormat $partition"
 echo -e "[${BLUE}INFO${NC}] Enter your passphrase (unlocking step) :"
 tryAndExit "cryptsetup luksOpen $partition temp_usb"
 
-echo -e "[${BLUE}INFO${NC}] Creating ext4 file system"
+echo -e "[${BLUE}INFO${NC}] Creating ext4 file system .. Please wait ..."
 mkfs.ext4 -L persistence /dev/mapper/temp_usb
 e2label /dev/mapper/temp_usb persistence
 
