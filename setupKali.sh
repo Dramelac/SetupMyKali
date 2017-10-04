@@ -1,17 +1,56 @@
 #!/bin/bash
 
-if [ $# -eq 0 ] || [ $# != 2 ]
-  then
-    echo "Arguments error"
-    echo "Usage: $0 <iso> <usb device>"
-    echo "Example: $0 /data/ISO/kali-linux-amd64.iso /dev/sdb"
-    exit 1
-fi
+function tryAndExit {
+    command=$1
 
-if [ "$EUID" -ne 0 ]
-  then echo "$0: Permission denied"
-  exit
-fi
+    while true; do
+      $command && break
+      if ask "[${RED}ERROR${NC}] Fail ! Retry?" Y; then
+        sleep 1
+      else
+        echo -e "[${RED}ERROR${NC}] Execution aborted"
+        exit 1
+      fi
+    done
+
+}
+
+function ask() {
+    # https://djm.me/ask
+    local prompt default reply
+
+    while true; do
+
+        if [ "${2:-}" = "Y" ]; then
+            prompt="Y/n"
+            default=Y
+        elif [ "${2:-}" = "N" ]; then
+            prompt="y/N"
+            default=N
+        else
+            prompt="y/n"
+            default=
+        fi
+
+        # Ask the question (not using "read -p" as it uses stderr not stdout)
+        echo -en "$1 [$prompt] "
+
+        # Read the answer (use /dev/tty in case stdin is redirected from somewhere else)
+        read reply </dev/tty
+
+        # Default?
+        if [ -z "$reply" ]; then
+            reply=$default
+        fi
+
+        # Check if the reply is valid
+        case "$reply" in
+            Y*|y*) return 0 ;;
+            N*|n*) return 1 ;;
+        esac
+
+    done
+}
 
 command -v cryptsetup >/dev/null 2>&1 || { 
     echo "I require cryptsetup but it's not installed.  Aborting." 
@@ -20,25 +59,93 @@ command -v cryptsetup >/dev/null 2>&1 || {
 }
 
 #ARGS
-iso=$1
-device=$2
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    -i|--iso)
+    iso="$2"
+    shift # past argument
+    shift # past value
+    ;;
+    -d|--device)
+    device="$2"
+    shift # past argument
+    shift # past value
+    ;;
+    -v|--verbose)
+    verbose=YES
+    shift # past argument
+    ;;
+    -h|--help)
+    help=YES
+    shift # past argument
+    ;;
+    *)    # unknown option
+    POSITIONAL+=("$1") # save it in an array for later
+    shift # past argument
+    ;;
+esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+if [ ! -z $help ]
+  then
+    echo "Setup My Kali -- help"
+    echo "Usage: $0 [OPTIONS] -i <iso> -d <usb device>"
+    echo "Automated creation of a usb bootable key on Kali Linux with an encrypted persistence partition"
+    echo ""
+    echo "Mandatory arguments :"
+    echo "  -i, --iso           path to kali iso image"
+    echo "  -d, --device        path to usb device (for example : /dev/sdc)"
+    echo ""
+    echo "Optional arguments :"
+    # echo "  -v, --verbose       verbose mode (WIP)"
+    echo "  -h, --help          print this help message"
+    echo ""
+    echo "Tools from : https://github.com/Dramelac/SetupMyKali"
+
+    exit 0
+fi
+
+if [ -z $iso ] || [ -z $device ]
+  then
+    echo "Arguments error"
+    echo "Usage: $0 -i <iso> -d <usb device>"
+    echo "Try -h or --help for more information."
+    echo "Example: $0 -i /data/ISO/kali-linux-amd64.iso -d /dev/sdb"
+    exit 1
+fi
+
+if [ "$EUID" -ne 0 ]
+  then echo "$0: Permission denied"
+  exit
+fi
 
 #COLOR
 NC='\033[0m' # No color
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
+BOLD='\033[1m'
+GREEN='\033[0;32m'$BOLD
+BLUE='\033[0;34m'$BOLD
+ORANGE='\033[0;33m'$BOLD
+RED='\033[0;31m'$BOLD
 
 echo -e "[${BLUE}INFO${NC}] Creating bootable Kali Linux with $iso on $device"
-echo -e "[${BLUE}INFO${NC}] Please wait ... Might be long ..."
+
+echo -e "[${ORANGE}WARNING${NC}] This script will$BOLD DELETED DEFINITIVELY$NC all the data present on $device"
+ask "[${GREEN}?${NC}] Are you sure you want to continue?" Y || exit 0
+
+echo -e "[${BLUE}INFO${NC}] Please wait ... Might be (very) long ..."
 dd if=$iso of=$device bs=512k
 
 
 if [ $? -ne 0 ]
-  then echo -e "[${RED}ERROR${NC}] An error occured"
+  then echo -e "[${RED}ERROR${NC}] An error occurred"
   exit 1
 fi
-echo -e "[${GREEN}OK${NC}] Success !"
+echo -e "[${GREEN}OK${NC}] Installing kali successfully !"
 
 # Determine free left space on USB device
 part=$(parted -m /dev/sdc unit s print free | grep "free" | tail -n1)
@@ -51,21 +158,14 @@ partition=$(echo $device)3
 
 echo -e "[${BLUE}INFO${NC}] Creating encrypted partition format on $partition"
 echo -e "[${BLUE}INFO${NC}] Enter your passphrase (initialization step) :"
+
 # Using luks format to encrypt data on this partition
-cryptsetup -v -y luksFormat $partition
-if [ $? -ne 0 ]
-  then echo -e "[${RED}ERROR${NC}] An error occured"
-  exit 1
-fi
+tryAndExit "cryptsetup -v -y luksFormat $partition"
 
 echo -e "[${BLUE}INFO${NC}] Enter your passphrase (unlocking step) :"
-cryptsetup luksOpen $partition temp_usb
-if [ $? -ne 0 ]
-  then echo -e "[${RED}ERROR${NC}] An error occured"
-  exit 1
-fi
+tryAndExit "cryptsetup luksOpen $partition temp_usb"
 
-echo -e "[${BLUE}INFO${NC}] Creating ext4 file system"
+echo -e "[${BLUE}INFO${NC}] Creating ext4 file system .. Please wait ..."
 mkfs.ext4 -L persistence /dev/mapper/temp_usb
 e2label /dev/mapper/temp_usb persistence
 
