@@ -2,26 +2,56 @@
 
 function tryAndExit {
     command=$1
-    trycpt=$2
-    if [ -z "$2" ]
-      then
-        trycpt=3 # Never trust
-    fi
 
-    i=0
-    until [ $i -ge $trycpt ]
+    until [ 0 -eq 1 ]
     do
       $command && break
-      i=$[$i+1]
-      echo -e "[${RED}ERROR${NC}] Fail ! Retry [$i/$trycpt]"
-      sleep 1
+      if ask "[${RED}ERROR${NC}] Fail ! Retry?" Y; then
+        sleep 1
+        break
+      else
+        echo -e "[${RED}ERROR${NC}] Execution aborted"
+        exit 1
+      fi
     done
 
-    if [ $i -ge $trycpt ]
-      then echo -e "[${RED}ERROR${NC}] An error occured"
-      exit 1
-    fi
+}
 
+function ask() {
+    # https://djm.me/ask
+    local prompt default reply
+
+    while true; do
+
+        if [ "${2:-}" = "Y" ]; then
+            prompt="Y/n"
+            default=Y
+        elif [ "${2:-}" = "N" ]; then
+            prompt="y/N"
+            default=N
+        else
+            prompt="y/n"
+            default=
+        fi
+
+        # Ask the question (not using "read -p" as it uses stderr not stdout)
+        echo -en "$1 [$prompt] "
+
+        # Read the answer (use /dev/tty in case stdin is redirected from somewhere else)
+        read reply </dev/tty
+
+        # Default?
+        if [ -z "$reply" ]; then
+            reply=$default
+        fi
+
+        # Check if the reply is valid
+        case "$reply" in
+            Y*|y*) return 0 ;;
+            N*|n*) return 1 ;;
+        esac
+
+    done
 }
 
 command -v cryptsetup >/dev/null 2>&1 || { 
@@ -87,7 +117,7 @@ if [ -z $iso ] || [ -z $device ]
     echo "Arguments error"
     echo "Usage: $0 -i <iso> -d <usb device>"
     echo "Try -h or --help for more information."
-    echo "Example: $0 /data/ISO/kali-linux-amd64.iso /dev/sdb"
+    echo "Example: $0 -i /data/ISO/kali-linux-amd64.iso -d /dev/sdb"
     exit 1
 fi
 
@@ -98,12 +128,16 @@ fi
 
 #COLOR
 NC='\033[0m' # No color
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
+BOLD='\033[1m'
+GREEN='\033[0;32m'$BOLD
+BLUE='\033[0;34m'$BOLD
+ORANGE='\033[0;33m'$BOLD
+RED='\033[0;31m'$BOLD
 
 echo -e "[${BLUE}INFO${NC}] Creating bootable Kali Linux with $iso on $device"
 
+echo -e "[${ORANGE}WARNING${NC}] This script will$BOLD DELETED DEFINITIVELY$NC all the data present on $device"
+ask "Are you sure you want to continue?" Y || exit 0
 
 echo -e "[${BLUE}INFO${NC}] Please wait ... Might be (very) long ..."
 # dd if=$iso of=$device bs=512k
@@ -113,7 +147,7 @@ if [ $? -ne 0 ]
   then echo -e "[${RED}ERROR${NC}] An error occured"
   exit 1
 fi
-echo -e "[${GREEN}OK${NC}] Success !"
+echo -e "[${GREEN}OK${NC}] Installing kali successfully !"
 
 # Determine free left space on USB device
 part=$(parted -m /dev/sdc unit s print free | grep "free" | tail -n1)
@@ -127,10 +161,10 @@ partition=$(echo $device)3
 echo -e "[${BLUE}INFO${NC}] Creating encrypted partition format on $partition"
 echo -e "[${BLUE}INFO${NC}] Enter your passphrase (initialization step) :"
 # Using luks format to encrypt data on this partition
-tryAndExit "cryptsetup -v -y luksFormat $partition" 5
+tryAndExit "cryptsetup -v -y luksFormat $partition"
 
 echo -e "[${BLUE}INFO${NC}] Enter your passphrase (unlocking step) :"
-tryAndExit "cryptsetup luksOpen $partition temp_usb" 2
+tryAndExit "cryptsetup luksOpen $partition temp_usb"
 
 echo -e "[${BLUE}INFO${NC}] Creating ext4 file system"
 mkfs.ext4 -L persistence /dev/mapper/temp_usb
