@@ -1,5 +1,25 @@
 #!/bin/bash
 
+function tryAndExit {
+    command=$1
+    tryCpt=$2
+
+    i=0
+    until [ $i -ge $tryCpt ]
+    do
+      $command && break
+      i=$[$i+1]
+      echo -e "[${RED}ERROR${NC}] Fail ! Retry [$i/$tryCpt]"
+      sleep 1
+    done
+
+    if [ $i -ge $tryCpt ]
+      then echo -e "[${RED}ERROR${NC}] An error occured"
+      exit 1
+    fi
+
+}
+
 if [ $# -eq 0 ] || [ $# != 2 ]
   then
     echo "Arguments error"
@@ -31,7 +51,7 @@ RED='\033[0;31m'
 
 echo -e "[${BLUE}INFO${NC}] Creating bootable Kali Linux with $iso on $device"
 echo -e "[${BLUE}INFO${NC}] Please wait ... Might be long ..."
-dd if=$iso of=$device bs=512k
+# dd if=$iso of=$device bs=512k
 
 
 if [ $? -ne 0 ]
@@ -46,24 +66,16 @@ start=$(echo $part | awk -F':' '{print $2}')
 end=$(echo $part | awk -F':' '{print $3}')
 
 echo -e "[${BLUE}INFO${NC}] Creating the Persistence Partition"
-parted -s $device unit s mkpart primary $start $end
+#parted -s $device unit s mkpart primary $start $end
 partition=$(echo $device)3
 
 echo -e "[${BLUE}INFO${NC}] Creating encrypted partition format on $partition"
 echo -e "[${BLUE}INFO${NC}] Enter your passphrase (initialization step) :"
 # Using luks format to encrypt data on this partition
-cryptsetup -v -y luksFormat $partition
-if [ $? -ne 0 ]
-  then echo -e "[${RED}ERROR${NC}] An error occured"
-  exit 1
-fi
+tryAndExit "cryptsetup -v -y luksFormat $partition" 5
 
 echo -e "[${BLUE}INFO${NC}] Enter your passphrase (unlocking step) :"
-cryptsetup luksOpen $partition temp_usb
-if [ $? -ne 0 ]
-  then echo -e "[${RED}ERROR${NC}] An error occured"
-  exit 1
-fi
+tryAndExit "cryptsetup luksOpen $partition temp_usb" 2
 
 echo -e "[${BLUE}INFO${NC}] Creating ext4 file system"
 mkfs.ext4 -L persistence /dev/mapper/temp_usb
