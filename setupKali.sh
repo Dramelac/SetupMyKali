@@ -2,28 +2,91 @@
 
 function tryAndExit {
     command=$1
-    tryCpt=$2
+    trycpt=$2
+    if [ -z "$2" ]
+      then
+        trycpt=3 # Never trust
+    fi
 
     i=0
-    until [ $i -ge $tryCpt ]
+    until [ $i -ge $trycpt ]
     do
       $command && break
       i=$[$i+1]
-      echo -e "[${RED}ERROR${NC}] Fail ! Retry [$i/$tryCpt]"
+      echo -e "[${RED}ERROR${NC}] Fail ! Retry [$i/$trycpt]"
       sleep 1
     done
 
-    if [ $i -ge $tryCpt ]
+    if [ $i -ge $trycpt ]
       then echo -e "[${RED}ERROR${NC}] An error occured"
       exit 1
     fi
 
 }
 
-if [ $# -eq 0 ] || [ $# != 2 ]
+command -v cryptsetup >/dev/null 2>&1 || { 
+    echo "I require cryptsetup but it's not installed.  Aborting." 
+    echo "Try to run this script from a live kali or install cryptsetup."
+    exit 1
+}
+
+#ARGS
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    -i|--iso)
+    iso="$2"
+    shift # past argument
+    shift # past value
+    ;;
+    -d|--device)
+    device="$2"
+    shift # past argument
+    shift # past value
+    ;;
+    -v|--verbose)
+    verbose=YES
+    shift # past argument
+    ;;
+    -h|--help)
+    help=YES
+    shift # past argument
+    ;;
+    *)    # unknown option
+    POSITIONAL+=("$1") # save it in an array for later
+    shift # past argument
+    ;;
+esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+if [ ! -z $help ]
+  then
+    echo "Setup My Kali -- help"
+    echo "Usage: $0 [OPTION] -i <iso> -d <usb device>"
+    echo "Automated creation of a usb bootable key on Kali Linux with an encrypted persistence partition"
+    echo ""
+    echo "Mandatory arguments :"
+    echo "  -i, --iso           path to kali iso image"
+    echo "  -d, --device        path to usb device (for example : /dev/sdc)"
+    echo ""
+    echo "Optional arguments :"
+    echo "  -v, --verbose       verbose mode (WIP)"
+    echo "  -h, --help          print this help message"
+    echo ""
+    echo "Tools from : https://github.com/Dramelac/SetupMyKali"
+
+    exit 0
+fi
+
+if [ -z $iso ] || [ -z $device ]
   then
     echo "Arguments error"
-    echo "Usage: $0 <iso> <usb device>"
+    echo "Usage: $0 -i <iso> -d <usb device>"
+    echo "Try -h or --help for more information."
     echo "Example: $0 /data/ISO/kali-linux-amd64.iso /dev/sdb"
     exit 1
 fi
@@ -33,16 +96,6 @@ if [ "$EUID" -ne 0 ]
   exit
 fi
 
-command -v cryptsetup >/dev/null 2>&1 || { 
-    echo "I require cryptsetup but it's not installed.  Aborting." 
-    echo "Try to run this script from a live kali or install cryptsetup."
-    exit 1
-}
-
-#ARGS
-iso=$1
-device=$2
-
 #COLOR
 NC='\033[0m' # No color
 GREEN='\033[0;32m'
@@ -50,7 +103,9 @@ BLUE='\033[0;34m'
 RED='\033[0;31m'
 
 echo -e "[${BLUE}INFO${NC}] Creating bootable Kali Linux with $iso on $device"
-echo -e "[${BLUE}INFO${NC}] Please wait ... Might be long ..."
+
+
+echo -e "[${BLUE}INFO${NC}] Please wait ... Might be (very) long ..."
 # dd if=$iso of=$device bs=512k
 
 
