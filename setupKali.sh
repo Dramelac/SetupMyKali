@@ -96,7 +96,7 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 if [ ! -z $help ]
   then
     echo "Setup My Kali -- help"
-    echo "Usage: $0 [OPTION] -i <iso> -d <usb device>"
+    echo "Usage: $0 [OPTIONS] -i <iso> -d <usb device>"
     echo "Automated creation of a usb bootable key on Kali Linux with an encrypted persistence partition"
     echo ""
     echo "Mandatory arguments :"
@@ -140,11 +140,11 @@ echo -e "[${ORANGE}WARNING${NC}] This script will$BOLD DELETED DEFINITIVELY$NC a
 ask "Are you sure you want to continue?" Y || exit 0
 
 echo -e "[${BLUE}INFO${NC}] Please wait ... Might be (very) long ..."
-# dd if=$iso of=$device bs=512k
+dd if=$iso of=$device bs=512k
 
 
 if [ $? -ne 0 ]
-  then echo -e "[${RED}ERROR${NC}] An error occured"
+  then echo -e "[${RED}ERROR${NC}] An error occurred"
   exit 1
 fi
 echo -e "[${GREEN}OK${NC}] Installing kali successfully !"
@@ -155,11 +155,12 @@ start=$(echo $part | awk -F':' '{print $2}')
 end=$(echo $part | awk -F':' '{print $3}')
 
 echo -e "[${BLUE}INFO${NC}] Creating the Persistence Partition"
-#parted -s $device unit s mkpart primary $start $end
+parted -s $device unit s mkpart primary $start $end
 partition=$(echo $device)3
 
 echo -e "[${BLUE}INFO${NC}] Creating encrypted partition format on $partition"
 echo -e "[${BLUE}INFO${NC}] Enter your passphrase (initialization step) :"
+
 # Using luks format to encrypt data on this partition
 tryAndExit "cryptsetup -v -y luksFormat $partition"
 

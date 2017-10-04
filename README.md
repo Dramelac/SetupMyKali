@@ -13,9 +13,13 @@ This script require **cryptsetup**, **parted** and **dd**.
 >
 > - Usage: 
     
-    ./setupKali.sh <iso> <usb device>
+    ./setupKali.sh [OPTIONS] -i <iso> -d <usb device>
+> - Help :
+
+    ./setupKali.sh -h
 > -  Example: 
   
-    ./setupKali.sh /data/ISO/kali-linux-amd64.iso /dev/sdb
+    ./setupKali.sh -i /data/ISO/kali-linux-amd64.iso -d /dev/sdb
+
 
 
