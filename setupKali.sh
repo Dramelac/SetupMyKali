@@ -134,7 +134,7 @@ RED='\033[0;31m'$BOLD
 
 echo -e "[${BLUE}INFO${NC}] Creating bootable Kali Linux with $iso on $device"
 
-echo -e "[${ORANGE}WARNING${NC}] This script will$BOLD DELETED DEFINITIVELY$NC all the data present on $device"
+echo -e "[${ORANGE}WARNING${NC}] This script will$BOLD DEFINITIVELY DELETE$NC all the data present on $device"
 ask "[${GREEN}?${NC}] Are you sure you want to continue?" Y || exit 0
 
 echo -e "[${BLUE}INFO${NC}] Please wait ... Might be (very) long ..."
@@ -145,7 +145,7 @@ if [ $? -ne 0 ]
   then echo -e "[${RED}ERROR${NC}] An error occurred"
   exit 1
 fi
-echo -e "[${GREEN}OK${NC}] Installing kali successfully !"
+echo -e "[${GREEN}OK${NC}] Kali installed successfully !"
 
 # Determine free left space on USB device
 part=$(parted -m /dev/sdc unit s print free | grep "free" | tail -n1)
