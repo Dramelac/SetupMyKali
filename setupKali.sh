@@ -148,7 +148,7 @@ fi
 echo -e "[${GREEN}OK${NC}] Kali installed successfully !"
 
 # Determine free left space on USB device
-part=$(parted -m /dev/sdc unit s print free | grep "free" | tail -n1)
+part=$(parted -m $device unit s print free | grep "free" | tail -n1)
 start=$(echo $part | awk -F':' '{print $2}')
 end=$(echo $part | awk -F':' '{print $3}')
 
