@@ -138,7 +138,7 @@ echo -e "[${ORANGE}WARNING${NC}] This script will$BOLD DEFINITIVELY DELETE$NC al
 ask "[${GREEN}?${NC}] Are you sure you want to continue?" Y || exit 0
 
 echo -e "[${BLUE}INFO${NC}] Please wait ... Might be (very) long ..."
-dd if=$iso of=$device bs=512k
+dd if=$iso | pv -s `du -k "$iso" -b | cut -f1` | dd of=$device
 
 
 if [ $? -ne 0 ]
