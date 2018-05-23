@@ -52,6 +52,26 @@ function ask() {
     done
 }
 
+function setupPassword(){
+    while true; do
+        local pwd1='a'
+        local pwd2=''
+        echo -ne "[${GREEN}?${NC}] Please enter your password: "
+        read -s pwd1 </dev/tty
+        echo -ne "\n[${GREEN}?${NC}] Confirm your password: "
+        read -s pwd2 </dev/tty
+        echo
+
+        if [ "$pwd1" == "$pwd2" ]; then
+            password=$pwd1
+            return 0
+        fi
+        echo -e "[${RED}ERROR${NC}] Passwords don't match !"
+    done
+
+    
+}
+
 command -v cryptsetup >/dev/null 2>&1 || { 
     echo "I require cryptsetup but it's not installed.  Aborting." 
     echo "Try to run this script from a live kali or install cryptsetup."
@@ -137,8 +157,10 @@ echo -e "[${BLUE}INFO${NC}] Creating bootable Kali Linux with $iso on $device"
 echo -e "[${ORANGE}WARNING${NC}] This script will$BOLD DEFINITIVELY DELETE$NC all the data present on $device"
 ask "[${GREEN}?${NC}] Are you sure you want to continue?" Y || exit 0
 
+setupPassword
+
 echo -e "[${BLUE}INFO${NC}] Please wait ... Might be (very) long ..."
-dd if=$iso of=$device bs=512k
+dd if=$iso status=none | pv -s `du -k "$iso" -b | cut -f1` | dd of=$device status=none
 
 
 if [ $? -ne 0 ]
@@ -157,16 +179,13 @@ parted -s $device unit s mkpart primary $start $end
 partition=$(echo $device)3
 
 echo -e "[${BLUE}INFO${NC}] Creating encrypted partition format on $partition"
-echo -e "[${BLUE}INFO${NC}] Enter your passphrase (initialization step) :"
 
 # Using luks format to encrypt data on this partition
-tryAndExit "cryptsetup -v -y luksFormat $partition"
-
-echo -e "[${BLUE}INFO${NC}] Enter your passphrase (unlocking step) :"
-tryAndExit "cryptsetup luksOpen $partition temp_usb"
+tryAndExit "$(echo $password | cryptsetup luksFormat $partition)"
+tryAndExit "$(echo $password | cryptsetup luksOpen $partition temp_usb)"
 
 echo -e "[${BLUE}INFO${NC}] Creating ext4 file system .. Please wait ..."
-mkfs.ext4 -L persistence /dev/mapper/temp_usb
+mkfs.ext4 -L persistence /dev/mapper/temp_usb > /dev/null
 e2label /dev/mapper/temp_usb persistence
 
 echo -e "[${BLUE}INFO${NC}] Mount filesystem"
