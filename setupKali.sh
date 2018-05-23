@@ -160,7 +160,7 @@ ask "[${GREEN}?${NC}] Are you sure you want to continue?" Y || exit 0
 setupPassword
 
 echo -e "[${BLUE}INFO${NC}] Please wait ... Might be (very) long ..."
-dd if=$iso | pv -s `du -k "$iso" -b | cut -f1` | dd of=$device
+dd if=$iso status=none | pv -s `du -k "$iso" -b | cut -f1` | dd of=$device status=none
 
 
 if [ $? -ne 0 ]
@@ -181,8 +181,8 @@ partition=$(echo $device)3
 echo -e "[${BLUE}INFO${NC}] Creating encrypted partition format on $partition"
 
 # Using luks format to encrypt data on this partition
-tryAndExit "$(echo $password | cryptsetup luksFormat $partition -d -)"
-tryAndExit "$(echo $password | cryptsetup luksOpen $partition temp_usb -d -)"
+tryAndExit "$(echo $password | cryptsetup luksFormat $partition)"
+tryAndExit "$(echo $password | cryptsetup luksOpen $partition temp_usb)"
 
 echo -e "[${BLUE}INFO${NC}] Creating ext4 file system .. Please wait ..."
 mkfs.ext4 -L persistence /dev/mapper/temp_usb > /dev/null
