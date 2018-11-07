@@ -3,9 +3,9 @@ This project can automatically configure a live USB kali with a persistent encry
 
 ## Prerequisites
 
-This script require **cryptsetup**, **parted** and **dd**.
+This script require **cryptsetup**, **parted**, **pv** and **dd**.
 
-    apt-get update && apt-get install cryptsetup
+    apt-get update && apt-get install cryptsetup pv
 
 ## How to use
 

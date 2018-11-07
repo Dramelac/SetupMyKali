@@ -73,8 +73,14 @@ function setupPassword(){
 }
 
 command -v cryptsetup >/dev/null 2>&1 || { 
-    echo "I require cryptsetup but it's not installed.  Aborting." 
+    echo "I require cryptsetup but it's not installed.  Aborting."
     echo "Try to run this script from a live kali or install cryptsetup."
+    exit 1
+}
+
+command -v pv >/dev/null 2>&1 || { 
+    echo "I require pv but it's not installed.  Aborting."
+    echo "Try to install pv. 'apt-get install pv'"
     exit 1
 }
 
