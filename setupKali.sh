@@ -1,10 +1,18 @@
 #!/bin/bash
 
+#COLOR
+NC='\033[0m' # No color
+BOLD='\033[1m'
+GREEN='\033[0;32m'${BOLD}
+BLUE='\033[0;34m'${BOLD}
+ORANGE='\033[0;33m'${BOLD}
+RED='\033[0;31m'${BOLD}
+
 function tryAndExit {
     command=$1
 
     while true; do
-      $command && break
+      ${command} && break
       if ask "[${RED}ERROR${NC}] Fail ! Retry?" Y; then
         sleep 1
       else
@@ -21,10 +29,10 @@ function ask() {
 
     while true; do
 
-        if [ "${2:-}" = "Y" ]; then
+        if [[ "${2:-}" = "Y" ]]; then
             prompt="Y/n"
             default=Y
-        elif [ "${2:-}" = "N" ]; then
+        elif [[ "${2:-}" = "N" ]]; then
             prompt="y/N"
             default=N
         else
@@ -39,8 +47,8 @@ function ask() {
         read reply </dev/tty
 
         # Default?
-        if [ -z "$reply" ]; then
-            reply=$default
+        if [[ -z "$reply" ]]; then
+            reply=${default}
         fi
 
         # Check if the reply is valid
@@ -62,8 +70,8 @@ function setupPassword(){
         read -s pwd2 </dev/tty
         echo
 
-        if [ "$pwd1" == "$pwd2" ]; then
-            password=$pwd1
+        if [[ "$pwd1" == "$pwd2" ]]; then
+            password=${pwd1}
             return 0
         fi
         echo -e "[${RED}ERROR${NC}] Passwords don't match !"
@@ -72,19 +80,13 @@ function setupPassword(){
     
 }
 
-command -v cryptsetup >/dev/null 2>&1 || { 
-    echo "I require cryptsetup but it's not installed.  Aborting." 
-    echo "Try to run this script from a live kali or install cryptsetup."
-    exit 1
-}
-
 #ARGS
 POSITIONAL=()
 while [[ $# -gt 0 ]]
 do
 key="$1"
 
-case $key in
+case ${key} in
     -i|--iso)
     iso="$2"
     shift # past argument
@@ -111,7 +113,7 @@ esac
 done
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
-if [ ! -z $help ]
+if [[ ! -z ${help} ]]
   then
     echo "Setup My Kali -- help"
     echo "Usage: $0 [OPTIONS] -i <iso> -d <usb device>"
@@ -130,7 +132,7 @@ if [ ! -z $help ]
     exit 0
 fi
 
-if [ -z $iso ] || [ -z $device ]
+if [[ -z ${iso} ]] || [[ -z ${device} ]]
   then
     echo "Arguments error"
     echo "Usage: $0 -i <iso> -d <usb device>"
@@ -139,50 +141,84 @@ if [ -z $iso ] || [ -z $device ]
     exit 1
 fi
 
-if [ "$EUID" -ne 0 ]
+# This script must be executed as root
+if [[ "$EUID" -ne 0 ]]
   then echo "$0: Permission denied"
   exit
 fi
 
-#COLOR
-NC='\033[0m' # No color
-BOLD='\033[1m'
-GREEN='\033[0;32m'$BOLD
-BLUE='\033[0;34m'$BOLD
-ORANGE='\033[0;33m'$BOLD
-RED='\033[0;31m'$BOLD
+# Dependencies checks
 
+command -v cryptsetup >/dev/null 2>&1 || {
+    echo -e "[${RED}ERROR${NC}] This script require cryptsetup but it's not installed."
+    echo -e "[${BLUE}INFO${NC}] Try to run this script from a live kali or install cryptsetup."
+    if command -v apt-get >/dev/null 2>&1 && ask "[${GREEN}?${NC}] Do you want to try to install it automatically?" Y; then
+        apt-get update && apt-get install cryptsetup || exit 1
+    else
+        echo -e "[${RED}INFO${NC}] Aborting."
+        exit 1
+    fi
+}
+
+command -v parted >/dev/null 2>&1 || {
+    echo -e "[${RED}ERROR${NC}] This script require parted but it's not installed."
+    echo -e "[${BLUE}INFO${NC}] Try to run this script from a live kali or install parted."
+    if command -v apt-get >/dev/null 2>&1 && ask "[${GREEN}?${NC}] Do you want to try to install it automatically?" Y; then
+        apt-get update && apt-get install parted || exit 1
+    else
+        echo -e "[${RED}INFO${NC}] Aborting."
+        exit 1
+    fi
+}
+
+pv_installed=1
+command -v pv >/dev/null 2>&1 || {
+    echo -e "[${ORANGE}INFO${NC}] PV was not detected on your system."
+    if command -v apt-get >/dev/null 2>&1 && ask "[${GREEN}?${NC}] This package is not mandatory but recommended. Do you want to try to install it automatically?" Y; then
+        apt-get update && apt-get install pv || exit 1
+    else
+        echo -e "[${BLUE}INFO${NC}] Resume execution without pv..."
+        pv_installed=0
+    fi
+}
+
+# Starting setup
 echo -e "[${BLUE}INFO${NC}] Creating bootable Kali Linux with $iso on $device"
 
-echo -e "[${ORANGE}WARNING${NC}] This script will$BOLD DEFINITIVELY DELETE$NC all the data present on $device"
+echo -e "[${ORANGE}WARNING${NC}] This script will${BOLD} DEFINITIVELY DELETE${NC} all the data present on ${BOLD}${device}${NC}"
 ask "[${GREEN}?${NC}] Are you sure you want to continue?" Y || exit 0
 
 setupPassword
 
+# Burning kali ISO
 echo -e "[${BLUE}INFO${NC}] Please wait ... Might be (very) long ..."
-dd if=$iso status=none | pv -s `du -k "$iso" -b | cut -f1` | dd of=$device status=none
+if [[ ${pv_installed} -eq 1 ]]; then
+    dd if=${iso} status=none | pv -s `du -k "$iso" -b | cut -f1` | dd of=${device} status=none
+else
+    dd if=${iso} of=${device}
+fi
 
 
-if [ $? -ne 0 ]
-  then echo -e "[${RED}ERROR${NC}] An error occurred"
-  exit 1
+if [[ $? -ne 0 ]]; then
+    echo -e "[${RED}ERROR${NC}] An error occurred"
+    exit 1
 fi
 echo -e "[${GREEN}OK${NC}] Kali installed successfully !"
 
 # Determine free left space on USB device
-part=$(parted -m $device unit s print free | grep "free" | tail -n1)
-start=$(echo $part | awk -F':' '{print $2}')
-end=$(echo $part | awk -F':' '{print $3}')
+part=$(parted -m ${device} unit s print free | grep "free" | tail -n1)
+start=$(echo ${part} | awk -F':' '{print $2}')
+end=$(echo ${part} | awk -F':' '{print $3}')
 
 echo -e "[${BLUE}INFO${NC}] Creating the Persistence Partition"
-parted -s $device unit s mkpart primary $start $end
-partition=$(echo $device)3
+parted -s ${device} unit s mkpart primary ${start} ${end}
+partition=$(echo ${device})3
 
 echo -e "[${BLUE}INFO${NC}] Creating encrypted partition format on $partition"
 
 # Using luks format to encrypt data on this partition
-tryAndExit "$(echo $password | cryptsetup luksFormat $partition)"
-tryAndExit "$(echo $password | cryptsetup luksOpen $partition temp_usb)"
+tryAndExit "$(echo ${password} | cryptsetup luksFormat ${partition})"
+tryAndExit "$(echo ${password} | cryptsetup luksOpen ${partition} temp_usb)"
 
 echo -e "[${BLUE}INFO${NC}] Creating ext4 file system .. Please wait ..."
 mkfs.ext4 -L persistence /dev/mapper/temp_usb > /dev/null
@@ -201,5 +237,3 @@ umount /dev/mapper/temp_usb
 cryptsetup luksClose /dev/mapper/temp_usb
 
 echo -e "[${GREEN}SUCCESS${NC}] USB READY !"
-
-
