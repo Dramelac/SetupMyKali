@@ -81,9 +81,14 @@ function setupPassword(){
 }
 
 command -v cryptsetup >/dev/null 2>&1 || { 
-    echo "[${RED}ERROR${NC}] I require cryptsetup but it's not installed.  Aborting."
-    echo "[${BLUE}INFO${NC}] Try to run this script from a live kali or install cryptsetup."
-    exit 1
+    echo -e "[${RED}ERROR${NC}] I require cryptsetup but it's not installed.  Aborting."
+    echo -e "[${BLUE}INFO${NC}] Try to run this script from a live kali or install cryptsetup."
+    if command -v apt-get >/dev/null 2>&1 && ask "[${GREEN}?${NC}] Do you want to try to install it automatically?" Y; then
+        apt-get update && apt-get install cryptsetup || exit 1
+    else
+        echo -e "[${RED}INFO${NC}] Aborting."
+        exit 1
+    fi
 }
 
 #ARGS
