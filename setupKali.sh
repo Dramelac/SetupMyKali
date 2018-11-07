@@ -80,17 +80,6 @@ function setupPassword(){
     
 }
 
-command -v cryptsetup >/dev/null 2>&1 || { 
-    echo -e "[${RED}ERROR${NC}] I require cryptsetup but it's not installed.  Aborting."
-    echo -e "[${BLUE}INFO${NC}] Try to run this script from a live kali or install cryptsetup."
-    if command -v apt-get >/dev/null 2>&1 && ask "[${GREEN}?${NC}] Do you want to try to install it automatically?" Y; then
-        apt-get update && apt-get install cryptsetup || exit 1
-    else
-        echo -e "[${RED}INFO${NC}] Aborting."
-        exit 1
-    fi
-}
-
 #ARGS
 POSITIONAL=()
 while [[ $# -gt 0 ]]
@@ -152,11 +141,35 @@ if [[ -z ${iso} ]] || [[ -z ${device} ]]
     exit 1
 fi
 
+# This script must be executed as root
 if [[ "$EUID" -ne 0 ]]
   then echo "$0: Permission denied"
   exit
 fi
 
+# Dependencies checks
+
+command -v cryptsetup >/dev/null 2>&1 || {
+    echo -e "[${RED}ERROR${NC}] This script require cryptsetup but it's not installed."
+    echo -e "[${BLUE}INFO${NC}] Try to run this script from a live kali or install cryptsetup."
+    if command -v apt-get >/dev/null 2>&1 && ask "[${GREEN}?${NC}] Do you want to try to install it automatically?" Y; then
+        apt-get update && apt-get install cryptsetup || exit 1
+    else
+        echo -e "[${RED}INFO${NC}] Aborting."
+        exit 1
+    fi
+}
+
+command -v parted >/dev/null 2>&1 || {
+    echo -e "[${RED}ERROR${NC}] This script require parted but it's not installed."
+    echo -e "[${BLUE}INFO${NC}] Try to run this script from a live kali or install parted."
+    if command -v apt-get >/dev/null 2>&1 && ask "[${GREEN}?${NC}] Do you want to try to install it automatically?" Y; then
+        apt-get update && apt-get install parted || exit 1
+    else
+        echo -e "[${RED}INFO${NC}] Aborting."
+        exit 1
+    fi
+}
 
 pv_installed=1
 command -v pv >/dev/null 2>&1 || {
@@ -169,6 +182,7 @@ command -v pv >/dev/null 2>&1 || {
     fi
 }
 
+# Starting setup
 echo -e "[${BLUE}INFO${NC}] Creating bootable Kali Linux with $iso on $device"
 
 echo -e "[${ORANGE}WARNING${NC}] This script will${BOLD} DEFINITIVELY DELETE${NC} all the data present on ${BOLD}${device}${NC}"
@@ -176,17 +190,18 @@ ask "[${GREEN}?${NC}] Are you sure you want to continue?" Y || exit 0
 
 setupPassword
 
+# Burning kali ISO
 echo -e "[${BLUE}INFO${NC}] Please wait ... Might be (very) long ..."
 if [[ ${pv_installed} -eq 1 ]]; then
-    dd if=${iso} status=none | pv -s `du -k "$iso" -b | cut -f1` | dd of=${device} status=none || $(echo -e "[${RED}ERROR${NC}] An error occurred" && exit 1)
+    dd if=${iso} status=none | pv -s `du -k "$iso" -b | cut -f1` | dd of=${device} status=none
 else
-    dd if=${iso} of=${device} || $(echo -e "[${RED}ERROR${NC}] An error occurred" && exit 1)
+    dd if=${iso} of=${device}
 fi
 
 
-if [[ $? -ne 0 ]]
-  then echo -e "[${RED}ERROR${NC}] An error occurred"
-  exit 1
+if [[ $? -ne 0 ]]; then
+    echo -e "[${RED}ERROR${NC}] An error occurred"
+    exit 1
 fi
 echo -e "[${GREEN}OK${NC}] Kali installed successfully !"
 
