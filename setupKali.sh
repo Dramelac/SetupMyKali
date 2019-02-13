@@ -12,7 +12,7 @@ function tryAndExit {
     command=$1
 
     while true; do
-      ${command} && break
+      eval $command && break
       if ask "[${RED}ERROR${NC}] Fail ! Retry?" Y; then
         sleep 1
       else
@@ -217,8 +217,8 @@ partition=$(echo ${device})3
 echo -e "[${BLUE}INFO${NC}] Creating encrypted partition format on $partition"
 
 # Using luks format to encrypt data on this partition
-tryAndExit "$(echo ${password} | cryptsetup luksFormat ${partition})"
-tryAndExit "$(echo ${password} | cryptsetup luksOpen ${partition} temp_usb)"
+tryAndExit "echo ${password} | cryptsetup luksFormat ${partition}"
+tryAndExit "echo ${password} | cryptsetup luksOpen ${partition} temp_usb"
 
 echo -e "[${BLUE}INFO${NC}] Creating ext4 file system .. Please wait ..."
 mkfs.ext4 -L persistence /dev/mapper/temp_usb > /dev/null
